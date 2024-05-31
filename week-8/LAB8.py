@@ -1,46 +1,65 @@
-from sklearn.cluster import KMeans
-from sklearn import preprocessing
-from sklearn.mixture import GaussianMixture
-from sklearn.datasets import load_iris
-import sklearn.metrics as sm
+import streamlit as st
 import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
+from sklearn.datasets import load_iris
+from sklearn.model_selection import train_test_split
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.metrics import accuracy_score, classification_report
 
-dataset=load_iris()
-# print(dataset)
+# Load the dataset
+@st.cache
+def load_data():
+    data = load_iris()
+    df = pd.DataFrame(data.data, columns=data.feature_names)
+    df['target'] = data.target
+    return df
 
-X=pd.DataFrame(dataset.data)
-X.columns=['Sepal_Length','Sepal_Width','Petal_Length','Petal_Width']
-y=pd.DataFrame(dataset.target)
-y.columns=['Targets']
-# print(X)
+df = load_data()
 
-plt.figure(figsize=(14,7))
-colormap=np.array(['red','lime','black'])
+# Split the data into features and target
+X = df.drop(columns=['target'])
+y = df['target']
 
-# REAL PLOT
-plt.subplot(1,3,1)
-plt.scatter(X.Petal_Length,X.Petal_Width,c=colormap[y.Targets],s=40)
-plt.title('Real')
+# Split the data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
 
-# K-PLOT
-plt.subplot(1,3,2)
-model=KMeans(n_clusters=3)
-model.fit(X)
-predY=np.choose(model.labels_,[0,1,2]).astype(np.int64)
-plt.scatter(X.Petal_Length,X.Petal_Width,c=colormap[predY],s=40)
-plt.title('KMeans')
+# Train the k-Nearest Neighbors classifier
+n_neighbors = st.sidebar.slider('Number of neighbors', min_value=1, max_value=10, value=5)
+knn = KNeighborsClassifier(n_neighbors=n_neighbors)
+knn.fit(X_train, y_train)
 
-# GMM PLOT
-scaler=preprocessing.StandardScaler()
-scaler.fit(X)
-xsa=scaler.transform(X)
-xs=pd.DataFrame(xsa,columns=X.columns)
-gmm=GaussianMixture(n_components=3)
-gmm.fit(xs)
+# Make predictions
+y_pred = knn.predict(X_test)
 
-y_cluster_gmm=gmm.predict(xs)
-plt.subplot(1,3,3)
-plt.scatter(X.Petal_Length,X.Petal_Width,c=colormap[y_cluster_gmm],s=40)
-plt.title('GMM Classification')
+# Calculate accuracy
+accuracy = accuracy_score(y_test, y_pred)
+
+# Print classification report
+st.write('## Classification Report')
+st.write(classification_report(y_test, y_pred, target_names=load_iris().target_names))
+
+# Streamlit app
+st.title('k-Nearest Neighbors Classifier for Iris Dataset')
+
+st.write('## Dataset')
+st.write(df.head())
+
+st.write('## Model Performance')
+st.write(f'Accuracy: {accuracy:.4f}')
+
+st.write('## Sample Predictions')
+correct_predictions = []
+wrong_predictions = []
+
+for i in range(len(y_pred)):
+    if y_pred[i] == y_test.iloc[i]:
+        correct_predictions.append((X_test.iloc[i], y_test.iloc[i], y_pred[i]))
+    else:
+        wrong_predictions.append((X_test.iloc[i], y_test.iloc[i], y_pred[i]))
+
+st.write('### Correct Predictions')
+for features, true_label, predicted_label in correct_predictions:
+    st.write(f'Features: {features.values}, True Label: {load_iris().target_names[true_label]}, Predicted Label: {load_iris().target_names[predicted_label]}')
+
+st.write('### Wrong Predictions')
+for features, true_label, predicted_label in wrong_predictions:
+    st.write(f'Features: {features.values}, True Label: {load_iris().target_names[true_label]}, Predicted Label: {load_iris().target_names[predicted_label]}')
