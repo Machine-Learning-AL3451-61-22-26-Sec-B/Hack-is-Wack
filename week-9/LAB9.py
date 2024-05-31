@@ -1,18 +1,51 @@
-from sklearn.datasets import load_iris
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.model_selection import train_test_split
-import numpy as np
+import pandas as pd 
+import numpy as np 
+import matplotlib.pyplot as plt 
+import streamlit as st
 
-dataset=load_iris()
-#print(dataset)
-X_train,X_test,y_train,y_test=train_test_split(dataset["data"],dataset["target"],random_state=0)
+# Define the data
+X = np.arange(0, 6*(np.pi), 0.1)
+Y = np.sin(X)
 
-kn=KNeighborsClassifier(n_neighbors=1)
-kn.fit(X_train,y_train)
+# Scatter plot function
+def scatter_plot(X, Y):
+    plt.scatter(X, Y, alpha=0.2)
+    plt.xlabel('X')
+    plt.ylabel('Y')
+    plt.title('Scatter Plot of Y = sin(X)')
 
-for i in range(len(X_test)):
-    x=X_test[i]
-    x_new=np.array([x])
-    prediction=kn.predict(x_new)
-    print("TARGET=",y_test[i],dataset["target_names"][y_test[i]],"PREDICTED=",prediction,dataset["target_names"][prediction])
-print(kn.score(X_test,y_test))
+# Local Regression function
+def local_regression(x0, X, Y, tau): 
+    x0 = np.r_[1, x0]
+    X = np.c_[np.ones(len(X)), X]
+    xw = X.T * radial_kernel(x0, X, tau)
+    beta = np.linalg.pinv(xw @ X) @ xw @ Y
+    return x0 @ beta
+
+# Radial Kernel function
+def radial_kernel(x0, X, tau): 
+    return np.exp(np.sum((X - x0) ** 2, axis=1) / (-2 * (tau ** 2)))
+
+# Plot LWR function
+def plot_lwr(tau):
+    domain = np.arange(0, 6*(np.pi), 0.1)
+    prediction = [local_regression(x0, X, Y, tau) for x0 in domain]
+    plt.scatter(X, Y, alpha=0.3)
+    plt.plot(domain, prediction, color='red')
+    plt.xlabel('X')
+    plt.ylabel('Y')
+    plt.title(f'Local Weighted Regression with tau={tau}')
+    return plt
+
+# Streamlit app
+st.title("Local Weighted Regression Visualization")
+st.write("This app visualizes Local Weighted Regression on a sine function.")
+
+# Tau input
+tau = st.slider('Select tau value', 0.01, 1.0, 0.1)
+
+# Plot the LWR
+fig, ax = plt.subplots()
+scatter_plot(X, Y)
+plot_lwr(tau)
+st.pyplot(fig)
