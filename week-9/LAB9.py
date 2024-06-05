@@ -1,51 +1,54 @@
-import pandas as pd 
-import numpy as np 
-import matplotlib.pyplot as plt 
+
+
+import numpy as np
 import streamlit as st
+import matplotlib.pyplot as plt
+from scipy.linalg import solve
 
-# Define the data
-X = np.arange(0, 6*(np.pi), 0.1)
-Y = np.sin(X)
+def local_weighted_regression(X, y, tau):
+    def kernel(x0, X, tau):
+        return np.exp(-np.sum((X - x0)**2, axis=1) / (2 * tau**2))
 
-# Scatter plot function
-def scatter_plot(X, Y):
-    plt.scatter(X, Y, alpha=0.2)
-    plt.xlabel('X')
-    plt.ylabel('Y')
-    plt.title('Scatter Plot of Y = sin(X)')
+    def predict(x0, X, y, tau):
+        W = np.diag(kernel(x0, X, tau))
+        XTWX = X.T @ W @ X
+        XTWy = X.T @ W @ y
+        theta = solve(XTWX, XTWy)
+        return x0 @ theta
 
-# Local Regression function
-def local_regression(x0, X, Y, tau): 
-    x0 = np.r_[1, x0]
-    X = np.c_[np.ones(len(X)), X]
-    xw = X.T * radial_kernel(x0, X, tau)
-    beta = np.linalg.pinv(xw @ X) @ xw @ Y
-    return x0 @ beta
+    return predict
 
-# Radial Kernel function
-def radial_kernel(x0, X, tau): 
-    return np.exp(np.sum((X - x0) ** 2, axis=1) / (-2 * (tau ** 2)))
+def generate_data():
+    np.random.seed(0)
+    X = np.sort(5 * np.random.rand(80, 1), axis=0)
+    y = np.sin(X).ravel()
+    y[::5] += 1 * (0.5 - np.random.rand(16))
+    return X, y
 
-# Plot LWR function
-def plot_lwr(tau):
-    domain = np.arange(0, 6*(np.pi), 0.1)
-    prediction = [local_regression(x0, X, Y, tau) for x0 in domain]
-    plt.scatter(X, Y, alpha=0.3)
-    plt.plot(domain, prediction, color='red')
-    plt.xlabel('X')
-    plt.ylabel('Y')
-    plt.title(f'Local Weighted Regression with tau={tau}')
-    return plt
+def plot_data(X, y, X_test, y_pred):
+    fig, ax = plt.subplots()
+    ax.scatter(X, y, color='red', label='Training Data')
+    ax.plot(X_test, y_pred, color='blue', label='LWR Fit')
+    ax.legend()
+    st.pyplot(fig)
 
-# Streamlit app
-st.title("Local Weighted Regression Visualization")
-st.write("This app visualizes Local Weighted Regression on a sine function.")
+def main():
+    st.title("Locally Weighted Regression")
+    st.write("This is an implementation of Locally Weighted Regression using Streamlit.")
+   
+    tau = st.slider("Bandwidth parameter (tau)", 0.1, 1.0, 0.5)
+   
+    X, y = generate_data()
+    X_test = np.linspace(0, 5, 100).reshape(-1, 1)
+    X_b = np.hstack([np.ones((X.shape[0], 1)), X])  # add intercept term
+    X_test_b = np.hstack([np.ones((X_test.shape[0], 1)), X_test])  # add intercept term
 
-# Tau input
-tau = st.slider('Select tau value', 0.01, 1.0, 0.1)
+    predict = local_weighted_regression(X_b, y, tau)
+    y_pred = np.array([predict(x0, X_b, y, tau) for x0 in X_test_b])
 
-# Plot the LWR
-fig, ax = plt.subplots()
-scatter_plot(X, Y)
-plot_lwr(tau)
-st.pyplot(fig)
+    plot_data(X, y, X_test, y_pred)
+
+if __name__ == '__main__':
+    main()
+
+
