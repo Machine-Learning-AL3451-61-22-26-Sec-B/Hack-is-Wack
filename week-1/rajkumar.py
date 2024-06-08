@@ -66,28 +66,20 @@ class CandidateElimination:
         return self.S, self.G
 
 # Example usage:
-# Create a pandas DataFrame from your data
-# Assuming data is a pandas DataFrame
-data = pd.DataFrame({'Attribute1': ['sunny', 'sunny', 'rainy', 'sunny', 'sunny', 'rainy'],
-'Attribute2': ['warm', 'warm', 'cold', 'warm', 'warm', 'cold'],
-'Attribute3': ['normal', 'high', 'high', 'high', 'normal', 'normal'],
-
-'Attribute4': ['strong', 'strong', 'strong', 'strong', 'weak', 'weak'],
-'Target': ['yes', 'yes', 'no', 'yes', 'yes', 'no']
-})
-
+data = {
+    'Feature1': [1, 0, 1, 0],
+    'Feature2': [1, 0, 0, 0],
+    'Feature3': [0, 1, 0, 0],
+    'Feature4': [0, 0, 0, 1],
+    'Label': [1, 0, 1, 0]
+}
 df = pd.DataFrame(data)
 
-# Separate features and labels
-X = df.drop('Label', axis=1).values
+X = df[['Feature1', 'Feature2', 'Feature3', 'Feature4']].values
 y = df['Label'].values
 
-# Initialize and fit the CandidateElimination model
 ce = CandidateElimination(num_features=X.shape[1])
 ce.fit(X, y)
 
-# Get final hypotheses
-final_specific_hypotheses, final_general_hypotheses = ce.get_hypotheses()
-print("Final Specific Hypotheses:", final_specific_hypotheses)
-print("Final General Hypotheses:", final_general_hypotheses)
-
+print("Final Specific Hypotheses:", ce.get_hypotheses()[0])
+print("Final General Hypotheses:", ce.get_hypotheses()[1])
