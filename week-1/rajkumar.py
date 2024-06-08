@@ -1,47 +1,82 @@
 import numpy as np
-import pandas as pd
-import streamlit as st
 
+class CandidateElimination:
+    def __init__(self, num_features):
+        self.num_features = num_features
+        self.S = [np.zeros(num_features, dtype=int)]  # Specific Boundary
+        self.G = [np.full(num_features, None)]  # General Boundary
 
-# Function to load data from uploaded CSV file
-def load_data(file):
-    data = pd.read_csv(file)
-    return data
+    def fit(self, X, y):
+        for i in range(len(X)):
+            x = X[i]
+            label = y[i]
 
-# Function to learn using Candidate Elimination Algorithm
-def learn(concepts, target):
-        # Initialise S0 with the first instance from concepts
-    specific_h = concepts[0].copy()
+            if label == 1:  # Positive example
+                self._remove_inconsistent_hypotheses(x)
+            else:  # Negative example
+                self._generalize_hypotheses(x)
 
-    general_h = [["?" for _ in range(len(specific_h))] for _ in range(len(specific_h))]
+    def _remove_inconsistent_hypotheses(self, x):
+        S_prime = []
+        for s in self.S:
+            if np.array_equal(s, x):
+                continue
+            if np.any(s != x):
+                S_prime.append(s)
+        self.S = S_prime
 
-    # The learning iterations
-    for i, h in enumerate(concepts):
+        self._specialize_hypotheses(x)
 
-        # Checking if the hypothesis has a positive target
-        if target[i] == "Yes":
-            for x in range(len(specific_h)):
-                # Change values in S & G only if values change
-                if h[x] != specific_h[x]:
-                    specific_h[x] = '?'
-                    general_h[x][x] = '?'
+    def _specialize_hypotheses(self, x):
+        G_prime = []
+        for g in self.G:
+            for i in range(len(x)):
+                if g[i] is None or g[i] == x[i]:
+                    continue
+                g_copy = np.copy(g)
+                g_copy[i] = None
+                if not self._is_more_general(g_copy):
+                    G_prime.append(g_copy)
+        self.G = G_prime
 
-        # Checking if the hypothesis has a negative target
-        if target[i] == "No":
-            for x in range(len(specific_h)):
-                # For negative hypothesis change values only in G
-                if h[x] != specific_h[x]:
-                    general_h[x][x] = specific_h[x]
-                else:
-                    general_h[x][x] = '?'
+    def _generalize_hypotheses(self, x):
+        S_prime = []
+        for s in self.S:
+            if np.array_equal(s, np.zeros(self.num_features)):
+                continue
+            s_copy = np.copy(s)
+            for i in range(len(x)):
+                if s[i] is None or s[i] == x[i]:
+                    continue
+                s_copy[i] = None
+            if not self._is_more_general(s_copy):
+                S_prime.append(s_copy)
+        self.S = S_prime
 
-    # Find indices where we have empty rows, meaning those that are unchanged
-    indices = [i for i, val in enumerate(general_h) if val == ['?'] * len(specific_h)]
-    for i in indices:
-        # Remove those rows from general_h
-        general_h.remove(['?'] * len(specific_h))
-    # Return final values
-    return specific_h, general_h
+        self._remove_inconsistent_hypotheses(x)
+
+    def _is_more_general(self, hypothesis):
+        for s in self.S:
+            if all((s_val is None or s_val == h_val) for s_val, h_val in zip(s, hypothesis)):
+                return True
+        return False
+
+    def get_hypotheses(self):
+        return self.S, self.G
+
+# Example usage:
+X = np.array([
+    [1, 1, 0, 0],
+    [0, 0, 1, 0],
+    [1, 0, 0, 0],
+    [0, 0, 0, 1]
+])
+y = np.array([1, 0, 1, 0])
+
+ce = CandidateElimination(num_features=X.shape[1])
+ce.fit(X, y)
+print("Final Specific Hypotheses:", ce.get_hypotheses()[0])
+print("Final General Hypotheses:", ce.get_hypotheses()[1])
 
 
 
