@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 
 class CandidateElimination:
     def __init__(self, num_features):
@@ -65,49 +66,28 @@ class CandidateElimination:
         return self.S, self.G
 
 # Example usage:
-X = np.array([
-    [1, 1, 0, 0],
-    [0, 0, 1, 0],
-    [1, 0, 0, 0],
-    [0, 0, 0, 1]
-])
-y = np.array([1, 0, 1, 0])
+# Create a pandas DataFrame from your data
+# Assuming data is a pandas DataFrame
+data = pd.DataFrame({'Attribute1': ['sunny', 'sunny', 'rainy', 'sunny', 'sunny', 'rainy'],
+'Attribute2': ['warm', 'warm', 'cold', 'warm', 'warm', 'cold'],
+'Attribute3': ['normal', 'high', 'high', 'high', 'normal', 'normal'],
 
+'Attribute4': ['strong', 'strong', 'strong', 'strong', 'weak', 'weak'],
+'Target': ['yes', 'yes', 'no', 'yes', 'yes', 'no']
+})
+
+df = pd.DataFrame(data)
+
+# Separate features and labels
+X = df.drop('Label', axis=1).values
+y = df['Label'].values
+
+# Initialize and fit the CandidateElimination model
 ce = CandidateElimination(num_features=X.shape[1])
 ce.fit(X, y)
-print("Final Specific Hypotheses:", ce.get_hypotheses()[0])
-print("Final General Hypotheses:", ce.get_hypotheses()[1])
 
+# Get final hypotheses
+final_specific_hypotheses, final_general_hypotheses = ce.get_hypotheses()
+print("Final Specific Hypotheses:", final_specific_hypotheses)
+print("Final General Hypotheses:", final_general_hypotheses)
 
-
-# Streamlit app
-st.title('Candidate-Elimination Algorithm')
-
-# Upload CSV file
-uploaded_file = st.file_uploader("Upload CSV file", type=['csv'])
-
-if uploaded_file is not None:
-    # Load data from uploaded file
-    data = load_data(uploaded_file)
-
-    # Separating concept features from Target
-    concepts = np.array(data.iloc[:, 0:-1])
-    target = np.array(data.iloc[:, -1])
-
-    # Execute the algorithm
-    s_final, g_final = learn(concepts, target)
-
-    # Display the training data
-    st.subheader('Training Data')
-    st.write(data)
-
-    # Display final specific hypothesis
-    st.subheader('Final Specific Hypothesis')
-    st.write(s_final)
-
-    # Convert final general hypotheses to DataFrame for tabular display
-    g_final_df = pd.DataFrame(g_final, columns=data.columns[:-1])
-    
-    # Display final general hypotheses
-    st.subheader('Final General Hypotheses')
-    st.write(g_final_df)
