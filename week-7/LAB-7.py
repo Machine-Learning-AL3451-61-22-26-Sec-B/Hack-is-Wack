@@ -1,59 +1,39 @@
-import streamlit as st
-import pandas as pd
-import numpy as np
-from sklearn.datasets import load_iris
-from sklearn.mixture import GaussianMixture
 from sklearn.cluster import KMeans
-from sklearn.metrics import silhouette_score
-import plotly.express as px
+from sklearn.mixture import GaussianMixture
+from sklearn.preprocessing import StandardScaler
+from sklearn.datasets import load_iris
+import matplotlib.pyplot as plt
 
-# Load the dataset
-@st.cache
-def load_data():
-    data = load_iris()
-    df = pd.DataFrame(data.data, columns=data.feature_names)
-    df['target'] = data.target
-    return df
+# Load the Iris dataset
+dataset = load_iris()
+X = dataset.data
+y = dataset.target
 
-df = load_data()
+# Plot setup
+plt.figure(figsize=(14, 7))
+colormap = ['red', 'lime', 'black']
 
-# Extract features for clustering
-X = df.drop(columns=['target'])
+# Plotting real data
+plt.subplot(1, 3, 1)
+plt.scatter(X[:, 2], X[:, 3], c=colormap[y], s=40)
+plt.title('Real')
 
-# Apply Gaussian Mixture Model (EM algorithm)
-gmm = GaussianMixture(n_components=3, random_state=42)
-gmm_labels = gmm.fit_predict(X)
-df['GMM Cluster'] = gmm_labels
+# Clustering using K-Means
+plt.subplot(1, 3, 2)
+kmeans = KMeans(n_clusters=3)
+pred_y_kmeans = kmeans.fit_predict(X)
+centroids_kmeans = kmeans.cluster_centers_
+plt.scatter(X[:, 2], X[:, 3], c=colormap[pred_y_kmeans], s=40)
+plt.scatter(centroids_kmeans[:, 2], centroids_kmeans[:, 3], marker='*', s=200, c='orange', label='Centroids')
+plt.title('KMeans')
 
-# Apply k-Means algorithm
-kmeans = KMeans(n_clusters=3, random_state=42)
-kmeans_labels = kmeans.fit_predict(X)
-df['kMeans Cluster'] = kmeans_labels
+# Clustering using Gaussian Mixture Model
+plt.subplot(1, 3, 3)
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+gmm = GaussianMixture(n_components=3)
+pred_y_gmm = gmm.fit_predict(X_scaled)
+plt.scatter(X[:, 2], X[:, 3], c=colormap[pred_y_gmm], s=40)
+plt.title('GMM Classification')
 
-# Calculate silhouette scores
-gmm_silhouette = silhouette_score(X, gmm_labels)
-kmeans_silhouette = silhouette_score(X, kmeans_labels)
-
-# Streamlit app
-st.title('Clustering with EM Algorithm and k-Means')
-
-st.write('## Dataset')
-st.write(df.head())
-
-st.write('## Silhouette Scores')
-st.write(f'GMM Silhouette Score: {gmm_silhouette:.4f}')
-st.write(f'k-Means Silhouette Score: {kmeans_silhouette:.4f}')
-
-st.write('## Clustering Results')
-
-# Plot the clustering results using Plotly
-fig1 = px.scatter_matrix(df, dimensions=df.columns[:-3], color='GMM Cluster', 
-                         title='GMM Clustering Results', symbol='target')
-fig2 = px.scatter_matrix(df, dimensions=df.columns[:-3], color='kMeans Cluster', 
-                         title='k-Means Clustering Results', symbol='target')
-
-st.plotly_chart(fig1)
-st.plotly_chart(fig2)
-
-st.write('## Note')
-st.write('In this example, we used the Iris dataset. For a real-world application, consider using more comprehensive and current data, and tuning the parameters of the clustering algorithms for better results.')
+plt.show()
