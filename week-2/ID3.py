@@ -1,76 +1,41 @@
+import streamlit as st
+import pandas as pd
 import numpy as np
-import math
-import csv
 
-def read_data(filename):
-    with open(filename, 'r') as csvfile:
-        datareader = csv.reader(csvfile, delimiter=',')
-        headers = next(datareader)
-        metadata = headers
-        traindata = [row for row in datareader]
+def generate_synthetic_data():
+    # Generate synthetic data
+    np.random.seed(42)
+    n_samples = 100
+    n_features = 4
+    X = np.random.randn(n_samples, n_features)
+    y = np.random.randint(0, 3, n_samples)  # Three classes
+    df = pd.DataFrame(X, columns=[f"Feature_{i+1}" for i in range(n_features)])
+    df['target'] = y
+    return df
 
-    return metadata, traindata
+def main():
+    st.title("Dummy Classifier")
+    st.write("This app demonstrates a dummy classifier using synthetic data.")
 
-class Node:
-    def __init__(self, attribute):
-        self.attribute = attribute
-        self.children = []
-        self.answer = ""
-        
-    def __str__(self):
-        return self.attribute
+    # Generate synthetic data
+    df = generate_synthetic_data()
 
-def subtables(data, col, delete):
-    unique_values, subtable_dict = np.unique(data[:, col], return_inverse=True), {}
-    for value in unique_values:
-        subtable_dict[value] = data[data[:, col] == value]
-        if delete:
-            subtable_dict[value] = np.delete(subtable_dict[value], col, 1)
-    return unique_values, subtable_dict
+    # Display dataset
+    st.subheader("Synthetic Dataset")
+    st.write(df)
 
-def entropy(S):
-    unique_values, counts = np.unique(S, return_counts=True)
-    probabilities = counts / S.size
-    return -np.sum(probabilities * np.log2(probabilities))
+    # Train model
+    most_common_class = df['target'].mode().iloc[0]
 
-def gain_ratio(data, col):
-    unique_values, subtable_dict = subtables(data, col, delete=False)
-    total_size = data.shape[0]
-    entropies = np.array([subtable_dict[value].shape[0] / total_size * entropy(subtable_dict[value][:, -1]) for value in unique_values])
-    total_entropy = entropy(data[:, -1])
-    iv = -np.sum((subtable_dict[value].shape[0] / total_size) * np.log2(subtable_dict[value].shape[0] / total_size) for value in unique_values)
-    return (total_entropy - np.sum(entropies)) / iv
+    # Evaluate model
+    y_true = df['target']
+    y_pred = np.full_like(y_true, most_common_class)
+    accuracy = np.mean(y_true == y_pred)
+    report = f"Accuracy: {accuracy:.2f}"
 
-def create_node(data, metadata):
-    if np.unique(data[:, -1]).shape[0] == 1:
-        node = Node("")
-        node.answer = np.unique(data[:, -1])[0]
-        return node
-        
-    gains = np.array([gain_ratio(data, col) for col in range(data.shape[1] - 1)])
-    split = np.argmax(gains)
-    
-    node = Node(metadata[split])    
-    metadata = np.delete(metadata, split, 0)    
-    
-    unique_values, subtable_dict = subtables(data, split, delete=True)
-    
-    for value in unique_values:
-        child = create_node(subtable_dict[value], metadata)
-        node.children.append((value, child))
-    
-    return node
+    # Display evaluation results
+    st.subheader("Model Evaluation")
+    st.write(report)
 
-def print_tree(node, level=0):
-    if node.answer != "":
-        print("   " * level, node.answer)
-        return
-    print("   " * level, node.attribute)
-    for value, n in node.children:
-        print("   " * (level + 1), value)
-        print_tree(n, level + 2)
-
-metadata, traindata = read_data("tennisdata.csv")
-data = np.array(traindata)
-node = create_node(data, metadata)
-print_tree(node)
+if __name__ == "__main__":
+    main()
