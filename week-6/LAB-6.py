@@ -1,94 +1,83 @@
+import streamlit as st
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-import streamlit as st
-from pgmpy.models import BayesianModel
-from pgmpy.estimators import MaximumLikelihoodEstimator
-from pgmpy.inference import VariableElimination
+from sklearn.model_selection import train_test_split
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.svm import SVC
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score, confusion_matrix, precision_score, recall_score
 
-# Title and introduction
-st.title("Bayesian Network for COVID-19 Symptom Classification")
-st.write("This app uses a Bayesian Network to classify COVID-19 symptoms based on the provided dataset.")
+def main():
+    st.title('Sentiment Analysis with Classifier')
 
-# Create a synthetic dataset
-def create_synthetic_data():
-    np.random.seed(42)
-    size = 1000
-    data = {
-        'Fever': np.random.randint(2, size=size),
-        'cough': np.random.randint(2, size=size),
-        'runnynose': np.random.randint(2, size=size),
-        'sorethroat': np.random.randint(2, size=size),
-        'pain': np.random.randint(2, size=size),
-        'diarrhoea': np.random.randint(2, size=size),
-        'diffbreath': np.random.randint(2, size=size),
-        'nose': np.random.randint(2, size=size),
-        'target': np.random.randint(2, size=size),
-        'tired': np.random.randint(2, size=size),
-    }
-    df = pd.DataFrame(data)
-    return df
+    default_file_path = r"C:\Users\TUF\Downloads\document (1).csv"
 
-# Generate the synthetic dataset
-df = create_synthetic_data()
+    uploaded_file = st.file_uploader("Choose a CSV file", type="csv")
 
-# Display the first five rows of the dataset
-st.subheader("First Five Rows of the Dataset")
-st.write(df.head())
+    delimiter = st.selectbox("Select delimiter for CSV file", [",", ";", "\t"])
 
-# Dataset description
-st.subheader("Dataset Description")
-st.write(df.describe())
+    if uploaded_file is not None:
+        msg = pd.read_csv(uploaded_file, names=['message', 'label'], delimiter=delimiter)
+    else:
+        msg = pd.read_csv(default_file_path, names=['message', 'label'])
 
-# Check for missing values
-st.subheader("Missing Values")
-st.write(df.isna().sum())
+    st.write("Total Instances of Dataset:", msg.shape[0])
 
-# Display histograms for all numeric columns
-st.subheader("Histograms")
-for column in df.select_dtypes(include=np.number).columns:
-    st.write(f"Histogram for {column}")
-    fig, ax = plt.subplots()
-    ax.hist(df[column].dropna(), bins=20)
-    st.pyplot(fig)
+    show_sample = st.checkbox("Show sample of original dataset")
+    if show_sample:
+        st.write("Sample of Original Dataset:")
+        st.write(msg.head())
 
-# Define the Bayesian Network structure
-st.subheader("Bayesian Network Structure")
-model = BayesianModel([
-    ('Fever', 'tired'),
-    ('cough', 'sorethroat'),
-    ('pain', 'runnynose'),
-    ('diarrhoea', 'target'),
-    ('diffbreath', 'Fever'),
-    ('nose', 'target'),
-    ('target', 'cough'),
-    ('sorethroat', 'pain'),
-    ('Fever', 'target')
-])
-model.fit(df, estimator=MaximumLikelihoodEstimator)
+    msg['labelnum'] = msg.label.map({'pos': 1, 'neg': 0})
 
-# Display CPD values
-st.subheader("Conditional Probability Distributions (CPDs)")
-for node in model.nodes():
-    st.write(f"CPD of {node}")
-    st.text(model.get_cpds(node))
+    test_size = st.slider("Test Size Ratio:", min_value=0.1, max_value=0.5, value=0.2, step=0.05)
+    X = msg.message
+    y = msg.labelnum
+    Xtrain, Xtest, ytrain, ytest = train_test_split(X, y, test_size=test_size, random_state=42)
 
-# Perform Variable Elimination for inference
-st.subheader("Inference using Variable Elimination")
-infer = VariableElimination(model)
+    handle_nan_inf = st.checkbox("Handle NaN or infinite values in target variable (ytrain)")
+    if handle_nan_inf:
+        if np.isnan(ytrain).any() or np.isinf(ytrain).any():
+            mask = ~np.isnan(ytrain) & ~np.isinf(ytrain)
+            Xtrain = Xtrain[mask]
+            ytrain = ytrain[mask]
 
-symptoms = ['Fever', 'cough', 'runnynose']
-evidence = {}
-for symptom in symptoms:
-    value = st.selectbox(f"Do you have {symptom}?", ('Yes', 'No', 'Not Sure'), key=symptom)
-    if value == 'Yes':
-        evidence[symptom] = 1
-    elif value == 'No':
-        evidence[symptom] = 0
+    count_v = CountVectorizer()
+    Xtrain_dm = count_v.fit_transform(Xtrain)
+    Xtest_dm = count_v.transform(Xtest)
 
-if evidence:
-    target_result = infer.query(variables=["target"], evidence=evidence)
-    st.write("Probability of having COVID-19 given the symptoms:")
-    st.write(target_result)
-else:
-    st.write("Please provide evidence for symptoms to get a prediction.")
+    df = pd.DataFrame(Xtrain_dm.toarray(), columns=count_v.get_feature_names_out())
+    st.write("Sample of Vectorized Training Data:")
+    st.write(df.head())
+
+    classifier = st.selectbox("Choose Classifier:", ["Multinomial Naive Bayes", "Support Vector Machine", "Random Forest"])
+
+    if classifier == "Multinomial Naive Bayes":
+        clf = MultinomialNB()
+    elif classifier == "Support Vector Machine":
+        clf = SVC()
+    elif classifier == "Random Forest":
+        clf = RandomForestClassifier()
+
+    clf.fit(Xtrain_dm, ytrain)
+    pred = clf.predict(Xtest_dm)
+
+    st.write('Sample Predictions:')
+    for doc, p in zip(Xtest, pred):
+        p = 'pos' if p == 1 else 'neg'
+        st.write(f"{doc} -> {p}")
+
+    st.write('Accuracy Metrics:')
+    metrics = st.multiselect("Choose Metrics:", ["Accuracy", "Recall", "Precision", "Confusion Matrix"])
+    if "Accuracy" in metrics:
+        st.write('Accuracy:', accuracy_score(ytest, pred))
+    if "Recall" in metrics:
+        st.write('Recall:', recall_score(ytest, pred))
+    if "Precision" in metrics:
+        st.write('Precision:', precision_score(ytest, pred))
+    if "Confusion Matrix" in metrics:
+        st.write('Confusion Matrix:\n', confusion_matrix(ytest, pred))
+
+if __name__ == '__main__':
+    main()
