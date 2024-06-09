@@ -1,91 +1,63 @@
 import streamlit as st
-import numpy as np
+import pandas as pd
+from sklearn.preprocessing import LabelEncoder
+from sklearn.naive_bayes import GaussianNB
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+import io
 
-class NeuralNetwork:
-    def __init__(self, input_size, output_size, hidden_size):
-        self.input_size = input_size
-        self.output_size = output_size
-        self.hidden_size = hidden_size
-        self.W1 = np.random.randn(self.input_size, self.hidden_size)
-        self.W2 = np.random.randn(self.hidden_size, self.output_size)
+# Define a function to load and preprocess data
+def load_data(uploaded_file):
+    try:
+        # Read the contents of the uploaded file
+        file_buffer = io.BytesIO(uploaded_file.getvalue())
+        data = pd.read_csv(file_buffer)
+        if data.empty:
+            st.error("Error: Uploaded file is empty.")
+            return None, None, None
+        X = data.iloc[:, :-1]
+        y = data.iloc[:, -1]
+        # Convert categorical variables to numerical
+        label_encoders = {}
+        for column in X.columns:
+            le = LabelEncoder()
+            X[column] = le.fit_transform(X[column])
+            label_encoders[column] = le
+        y = LabelEncoder().fit_transform(y)
+        return X, y, label_encoders
+    except Exception as e:
+        st.error(f"An error occurred while loading the data: {e}")
+        return None, None, None
 
-    def forward(self, X):
-        self.z = np.dot(X, self.W1)
-        self.z2 = self.sigmoid(self.z)
-        self.z3 = np.dot(self.z2, self.W2)
-        o = self.sigmoid(self.z3)
-        return o 
-
-    def sigmoid(self, s):
-        return 1/(1+np.exp(-s))
-
-    def sigmoid_prime(self, s):
-        return s * (1 - s)
-    
-    def backward(self, X, y, o):
-        self.o_error = y - o
-        self.o_delta = self.o_error * self.sigmoid_prime(o)
-        self.z2_error = self.o_delta.dot(self.W2.T)
-        self.z2_delta = self.z2_error * self.sigmoid_prime(self.z2)
-        self.W1 += X.T.dot(self.z2_delta)
-        self.W2 += self.z2.T.dot(self.o_delta)
-
-    def train(self, X, y):
-        o = self.forward(X)
-        self.backward(X, y, o)
-
-def scale_data(X, y):
-    X_scaled = X / np.amax(X, axis=0)
-    y_scaled = y / 100  # Scaling the output by dividing by 100
-    return X_scaled, y_scaled
-
+# Main function to run the Streamlit app
 def main():
-    st.title('Neural Network with Streamlit')
+    st.title('Tennis Game Prediction')
+    
+    # Sidebar to upload file
+    uploaded_file = st.sidebar.file_uploader("Upload CSV file", type=['csv'])
+    
+    if uploaded_file is not None:
+        st.write("### First 5 rows of data:")
+        # Pass the uploaded file object to the load_data function
+        X, y, label_encoders = load_data(uploaded_file)
+        if X is not None and y is not None and label_encoders is not None:
+            st.dataframe(X.head())
+            
+            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20, random_state=42)  # Added random_state for reproducibility
+            
+            classifier = GaussianNB()
+            classifier.fit(X_train, y_train)
+            
+            y_pred = classifier.predict(X_test)
+            accuracy = accuracy_score(y_test, y_pred)
+            
+            st.write("### Model Evaluation:")
+            st.write(f"Accuracy of the model: {accuracy:.2f}")
+            
+            # Adding code to display label encoders
+            st.write("### Label Encoders:")
+            for column, le in label_encoders.items():
+                st.write(f"{column}: {le.classes_}")
 
-    # Original data
-    X = np.array(([2, 9], [1, 5], [3, 6]), dtype=float)     
-    y = np.array(([92], [86], [89]), dtype=float)           
-
-    # Scale the data
-    X_scaled, y_scaled = scale_data(X, y)
-
-    # Neural network initialization
-    input_size = X_scaled.shape[1]
-    output_size = y_scaled.shape[1]
-    hidden_size = 3
-    NN = NeuralNetwork(input_size, output_size, hidden_size)
-
-    # Display original and scaled data
-    st.subheader('Original Data:')
-    st.write('Input:')
-    st.write(X)
-    st.write('Actual Output:')
-    st.write(y)
-
-    st.subheader('Scaled Data:')
-    st.write('Scaled Input:')
-    st.write(X_scaled)
-    st.write('Scaled Output:')
-    st.write(y_scaled)
-
-    # Training the neural network
-    NN.train(X_scaled, y_scaled)
-
-    # Display predicted output and loss
-    st.subheader('Prediction and Loss:')
-    predicted_output = NN.forward(X_scaled)
-    loss = np.mean(np.square(y_scaled - predicted_output))
-    st.write('Predicted Output:')
-    st.write(predicted_output)
-    st.write('Loss:')
-    st.write(loss)
-
-    # Output the final weights
-    st.subheader('Final Weights:')
-    st.write('Weights from input to hidden layer:')
-    st.write(NN.W1)
-    st.write('Weights from hidden to output layer:')
-    st.write(NN.W2)
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
