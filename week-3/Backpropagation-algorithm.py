@@ -1,64 +1,71 @@
-import numpy as np
 import streamlit as st
+import numpy as np
 
+# Artificial Neural Network class with backpropagation algorithm
 class NeuralNetwork:
     def __init__(self):
-        # Parameters
-        self.input_size = 2
-        self.output_size = 1
-        self.hidden_size = 3
-        
-        # Weights
-        self.W1 = np.random.randn(self.input_size, self.hidden_size)
-        self.W2 = np.random.randn(self.hidden_size, self.output_size)
+        # Initialize weights and biases
+        self.weights = np.random.rand(2, 2)
+        self.biases = np.random.rand(2, 1)
 
-    def forward(self, X):
-        # Forward propagation through the network
-        self.z = np.dot(X, self.W1)
-        self.z2 = self.sigmoid(self.z)
-        self.z3 = np.dot(self.z2, self.W2)
-        o = self.sigmoid(self.z3)
-        return o 
+    def sigmoid(self, x):
+        return 1 / (1 + np.exp(-x))
 
-    def backward(self, X, y, o):
-        # Backward propagate through the network
-        self.o_error = y - o
-        self.o_delta = self.o_error * self.sigmoid_prime(o)
-        self.z2_error = self.o_delta.dot(self.W2.T)
-        self.z2_delta = self.z2_error * self.sigmoid_prime(self.z2)
-        self.W1 += X.T.dot(self.z2_delta)
-        self.W2 += self.z2.T.dot(self.o_delta)
+    def feedforward(self, inputs):
+        # Compute feedforward
+        self.hidden = self.sigmoid(np.dot(self.weights, inputs) + self.biases)
+        return self.hidden
 
-    def train(self, X, y):
-        # Training function
-        o = self.forward(X)
-        self.backward(X, y, o)
+    # Implement backpropagation algorithm to update weights and biases
+    def train(self, inputs, targets, learning_rate):
+        # Feedforward
+        self.output = self.feedforward(inputs)
+        # Compute error
+        self.error = targets - self.output
+        # Update weights and biases
+        self.weights += learning_rate * np.dot((self.error * self.output * (1 - self.output)), inputs.T)
+        self.biases += learning_rate * (self.error * self.output * (1 - self.output))
 
-    def sigmoid(self, s):
-        # Activation function
-        return 1 / (1 + np.exp(-s))
+# Streamlit app
+def main():
+    st.title("Neural Network Backpropagation Demo")
 
-    def sigmoid_prime(self, s):
-        # Derivative of sigmoid
-        return s * (1 - s)
+    # Initialize neural network
+    neural_network = NeuralNetwork()
 
-    def evaluate(self, X):
-        # Evaluation function
-        return self.forward(X)
+    # Input form for dataset
+    st.subheader("Enter Dataset")
+    dataset_input = st.text_area("Enter dataset (one row per line)", "0.1, 0.2\n0.3, 0.4")
+
+    # Print dataset button
+    if st.button("Print Dataset"):
+        dataset = []
+        lines = dataset_input.strip().split("\n")
+        for line in lines:
+            data = [float(x.strip()) for x in line.split(",")]
+            dataset.append(data)
+        st.subheader("Dataset:")
+        st.write(dataset)
+
+    # Input form for training
+    st.subheader("Input Data")
+    input_data = st.text_input("Enter input data (comma separated)", "0.1, 0.2")
+
+    if st.button("Train Neural Network"):
+        # Split input data and convert to numpy array
+        inputs = np.array([float(x.strip()) for x in input_data.split(",")]).reshape(-1, 1)
+        # Dummy target data for demonstration
+        targets = np.array([[0.9], [0.1]])
+        # Train neural network
+        neural_network.train(inputs, targets, learning_rate=0.1)
+        st.success("Neural network trained successfully!")
+
+    # Make predictions
+    if st.button("Make Predictions"):
+        inputs = np.array([float(x.strip()) for x in input_data.split(",")]).reshape(-1, 1)
+        predictions = neural_network.feedforward(inputs)
+        st.subheader("Predictions")
+        st.write(predictions)
 
 if __name__ == "__main__":
-    # Sample data
-    X = np.array(([2, 9], [1, 5], [3, 6]), dtype=float)
-    y = np.array(([92], [86], [89]), dtype=float)
-
-    # Scale units
-    X = X / np.amax(X, axis=0)
-    y = y / 100  # Max test score is 100
-
-    # Create and train neural network
-    NN = NeuralNetwork()
-    print("\nInput:\n", X)
-    print("\nActual Output:\n", y)
-    print("\nPredicted Output:\n", NN.evaluate(X))
-    print("\nLoss:\n", np.mean(np.square(y - NN.evaluate(X))))  # Mean squared loss
-    NN.train(X, y)
+    main()
