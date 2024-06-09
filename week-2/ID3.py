@@ -1,41 +1,91 @@
 import streamlit as st
-import pandas as pd
 import numpy as np
 
-def generate_synthetic_data():
-    # Generate synthetic data
-    np.random.seed(42)
-    n_samples = 100
-    n_features = 4
-    X = np.random.randn(n_samples, n_features)
-    y = np.random.randint(0, 3, n_samples)  # Three classes
-    df = pd.DataFrame(X, columns=[f"Feature_{i+1}" for i in range(n_features)])
-    df['target'] = y
-    return df
+class NeuralNetwork:
+    def __init__(self, input_size, output_size, hidden_size):
+        self.input_size = input_size
+        self.output_size = output_size
+        self.hidden_size = hidden_size
+        self.W1 = np.random.randn(self.input_size, self.hidden_size)
+        self.W2 = np.random.randn(self.hidden_size, self.output_size)
+
+    def forward(self, X):
+        self.z = np.dot(X, self.W1)
+        self.z2 = self.sigmoid(self.z)
+        self.z3 = np.dot(self.z2, self.W2)
+        o = self.sigmoid(self.z3)
+        return o 
+
+    def sigmoid(self, s):
+        return 1/(1+np.exp(-s))
+
+    def sigmoid_prime(self, s):
+        return s * (1 - s)
+    
+    def backward(self, X, y, o):
+        self.o_error = y - o
+        self.o_delta = self.o_error * self.sigmoid_prime(o)
+        self.z2_error = self.o_delta.dot(self.W2.T)
+        self.z2_delta = self.z2_error * self.sigmoid_prime(self.z2)
+        self.W1 += X.T.dot(self.z2_delta)
+        self.W2 += self.z2.T.dot(self.o_delta)
+
+    def train(self, X, y):
+        o = self.forward(X)
+        self.backward(X, y, o)
+
+def scale_data(X, y):
+    X_scaled = X / np.amax(X, axis=0)
+    y_scaled = y / 100  # Scaling the output by dividing by 100
+    return X_scaled, y_scaled
 
 def main():
-    st.title("Dummy Classifier")
-    st.write("This app demonstrates a dummy classifier using synthetic data.")
+    st.title('Neural Network with Streamlit')
 
-    # Generate synthetic data
-    df = generate_synthetic_data()
+    # Original data
+    X = np.array(([2, 9], [1, 5], [3, 6]), dtype=float)     
+    y = np.array(([92], [86], [89]), dtype=float)           
 
-    # Display dataset
-    st.subheader("Synthetic Dataset")
-    st.write(df)
+    # Scale the data
+    X_scaled, y_scaled = scale_data(X, y)
 
-    # Train model
-    most_common_class = df['target'].mode().iloc[0]
+    # Neural network initialization
+    input_size = X_scaled.shape[1]
+    output_size = y_scaled.shape[1]
+    hidden_size = 3
+    NN = NeuralNetwork(input_size, output_size, hidden_size)
 
-    # Evaluate model
-    y_true = df['target']
-    y_pred = np.full_like(y_true, most_common_class)
-    accuracy = np.mean(y_true == y_pred)
-    report = f"Accuracy: {accuracy:.2f}"
+    # Display original and scaled data
+    st.subheader('Original Data:')
+    st.write('Input:')
+    st.write(X)
+    st.write('Actual Output:')
+    st.write(y)
 
-    # Display evaluation results
-    st.subheader("Model Evaluation")
-    st.write(report)
+    st.subheader('Scaled Data:')
+    st.write('Scaled Input:')
+    st.write(X_scaled)
+    st.write('Scaled Output:')
+    st.write(y_scaled)
+
+    # Training the neural network
+    NN.train(X_scaled, y_scaled)
+
+    # Display predicted output and loss
+    st.subheader('Prediction and Loss:')
+    predicted_output = NN.forward(X_scaled)
+    loss = np.mean(np.square(y_scaled - predicted_output))
+    st.write('Predicted Output:')
+    st.write(predicted_output)
+    st.write('Loss:')
+    st.write(loss)
+
+    # Output the final weights
+    st.subheader('Final Weights:')
+    st.write('Weights from input to hidden layer:')
+    st.write(NN.W1)
+    st.write('Weights from hidden to output layer:')
+    st.write(NN.W2)
 
 if __name__ == "__main__":
     main()
