@@ -1,83 +1,76 @@
-import streamlit as st
 import pandas as pd
-import numpy as np
-from sklearn.model_selection import train_test_split
-from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.naive_bayes import MultinomialNB
-from sklearn.svm import SVC
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score, confusion_matrix, precision_score, recall_score
+import streamlit as st
+from pgmpy.models import BayesianModel
+from pgmpy.estimators import MaximumLikelihoodEstimator
+from pgmpy.inference import VariableElimination
 
-def main():
-    st.title('Sentiment Analysis with Classifier')
+# Title of the Streamlit app
+st.title("COVID-19 Bayesian Inference")
 
-    default_file_path = r"C:\Users\TUF\Downloads\document (1).csv"
+# Load the dataset
+data_path = 'corona.csv'  # Adjust the path if necessary
+data = pd.read_csv(data_path)
 
-    uploaded_file = st.file_uploader("Choose a CSV file", type="csv")
+# Display the first few rows of the dataset to ensure it's loaded correctly
+st.write("Dataset loaded successfully:")
+st.write(data.head())
 
-    delimiter = st.selectbox("Select delimiter for CSV file", [",", ";", "\t"])
+# Use a subset of the data to avoid memory issues
+data_subset = data.head(100)  # Using only the first 100 rows
 
-    if uploaded_file is not None:
-        msg = pd.read_csv(uploaded_file, names=['message', 'label'], delimiter=delimiter)
-    else:
-        msg = pd.read_csv(default_file_path, names=['message', 'label'])
+# Define a simplified Bayesian Model
+model = BayesianModel([
+    ('New cases', 'Total Confirmed cases'),
+    ('New deaths', 'Death'),
+    ('New recovered', 'Cured/Discharged/Migrated')
+])
 
-    st.write("Total Instances of Dataset:", msg.shape[0])
+# Fit the model using Maximum Likelihood Estimation
+st.write("Fitting the model...")
+model.fit(data_subset, estimator=MaximumLikelihoodEstimator)
+st.write("Model fitting complete.")
 
-    show_sample = st.checkbox("Show sample of original dataset")
-    if show_sample:
-        st.write("Sample of Original Dataset:")
-        st.write(msg.head())
+# Perform inference
+st.write("Performing inference setup...")
+infer = VariableElimination(model)
+st.write("Inference setup complete.")
 
-    msg['labelnum'] = msg.label.map({'pos': 1, 'neg': 0})
+# Set evidence values (example values; can be customized or parameterized)
+new_cases = 1
+new_deaths = 0
+new_recovered = 0
 
-    test_size = st.slider("Test Size Ratio:", min_value=0.1, max_value=0.5, value=0.2, step=0.05)
-    X = msg.message
-    y = msg.labelnum
-    Xtrain, Xtest, ytrain, ytest = train_test_split(X, y, test_size=test_size, random_state=42)
+# Perform the query
+st.write("Performing the query with the provided evidence...")
+q = infer.query(variables=['Total Confirmed cases', 'Death', 'Cured/Discharged/Migrated'], evidence={
+    'New cases': new_cases,
+    'New deaths': new_deaths,
+    'New recovered': new_recovered
+})
 
-    handle_nan_inf = st.checkbox("Handle NaN or infinite values in target variable (ytrain)")
-    if handle_nan_inf:
-        if np.isnan(ytrain).any() or np.isinf(ytrain).any():
-            mask = ~np.isnan(ytrain) & ~np.isinf(ytrain)
-            Xtrain = Xtrain[mask]
-            ytrain = ytrain[mask]
+# Extracting the results in a readable format
+# Get the indices and the values of the query result
+indices = q.variables
+values = q.values
 
-    count_v = CountVectorizer()
-    Xtrain_dm = count_v.fit_transform(Xtrain)
-    Xtest_dm = count_v.transform(Xtest)
+# Flatten the indices and values
+results = []
+for idx, val in enumerate(values.flatten()):
+    # Decode the index combination
+    index_combination = []
+    current_idx = idx
+    for var in reversed(indices):
+        current_idx, value = divmod(current_idx, q.cardinality[q.variables.index(var)])
+        index_combination.append(value)
+    index_combination.reverse()
+    
+    # Append the combination and the probability value
+    results.append(index_combination + [val])
 
-    df = pd.DataFrame(Xtrain_dm.toarray(), columns=count_v.get_feature_names_out())
-    st.write("Sample of Vectorized Training Data:")
-    st.write(df.head())
+# Create a DataFrame from the results
+columns = [var for var in indices] + ['Probability']
+results_df = pd.DataFrame(results, columns=columns)
 
-    classifier = st.selectbox("Choose Classifier:", ["Multinomial Naive Bayes", "Support Vector Machine", "Random Forest"])
-
-    if classifier == "Multinomial Naive Bayes":
-        clf = MultinomialNB()
-    elif classifier == "Support Vector Machine":
-        clf = SVC()
-    elif classifier == "Random Forest":
-        clf = RandomForestClassifier()
-
-    clf.fit(Xtrain_dm, ytrain)
-    pred = clf.predict(Xtest_dm)
-
-    st.write('Sample Predictions:')
-    for doc, p in zip(Xtest, pred):
-        p = 'pos' if p == 1 else 'neg'
-        st.write(f"{doc} -> {p}")
-
-    st.write('Accuracy Metrics:')
-    metrics = st.multiselect("Choose Metrics:", ["Accuracy", "Recall", "Precision", "Confusion Matrix"])
-    if "Accuracy" in metrics:
-        st.write('Accuracy:', accuracy_score(ytest, pred))
-    if "Recall" in metrics:
-        st.write('Recall:', recall_score(ytest, pred))
-    if "Precision" in metrics:
-        st.write('Precision:', precision_score(ytest, pred))
-    if "Confusion Matrix" in metrics:
-        st.write('Confusion Matrix:\n', confusion_matrix(ytest, pred))
-
-if __name__ == '__main__':
-    main()
+# Display the results in a proper table format
+st.write("Inference results:")
+st.write(results_df)
