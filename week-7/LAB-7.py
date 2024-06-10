@@ -1,34 +1,79 @@
+
+import pandas as pd
+import streamlit as st
+import numpy as np
+import matplotlib.pyplot as plt
 from sklearn.cluster import KMeans
 from sklearn.mixture import GaussianMixture
 from sklearn.preprocessing import StandardScaler
-from sklearn.datasets import load_iris
-import plotly.graph_objects as go
+from sklearn.metrics import silhouette_score
 
-# Load the Iris dataset
-dataset = load_iris()
-X = dataset.data
-y = dataset.target
+# Generate synthetic dataset
+np.random.seed(0)
+data = np.random.randn(300, 2)
 
-# Plotting real data
-real_fig = go.Figure(data=go.Scatter(x=X[:, 2], y=X[:, 3], mode='markers', marker=dict(color=y, colorscale='Viridis', size=10)))
-real_fig.update_layout(title='Real Data')
-real_fig.show()
+# Load the dataset
+@st.cache_data
+def load_data():
+    return pd.DataFrame(data, columns=['Feature 1', 'Feature 2'])
 
-# Clustering using K-Means
-kmeans = KMeans(n_clusters=3)
-pred_y_kmeans = kmeans.fit_predict(X)
-centroids_kmeans = kmeans.cluster_centers_
-kmeans_fig = go.Figure()
-kmeans_fig.add_trace(go.Scatter(x=X[:, 2], y=X[:, 3], mode='markers', marker=dict(color=pred_y_kmeans, colorscale='Viridis', size=10), name='Clusters'))
-kmeans_fig.add_trace(go.Scatter(x=centroids_kmeans[:, 2], y=centroids_kmeans[:, 3], mode='markers', marker=dict(symbol='star', color='orange', size=12), name='Centroids'))
-kmeans_fig.update_layout(title='KMeans Clustering')
-kmeans_fig.show()
+# Perform K-Means clustering
+def kmeans_clustering(data, n_clusters):
+    kmeans = KMeans(n_clusters=n_clusters, random_state=42)
+    kmeans.fit(data)
+    labels = kmeans.labels_
+    return labels
 
-# Clustering using Gaussian Mixture Model
-scaler = StandardScaler()
-X_scaled = scaler.fit_transform(X)
-gmm = GaussianMixture(n_components=3)
-pred_y_gmm = gmm.fit_predict(X_scaled)
-gmm_fig = go.Figure(data=go.Scatter(x=X[:, 2], y=X[:, 3], mode='markers', marker=dict(color=pred_y_gmm, colorscale='Viridis', size=10)))
-gmm_fig.update_layout(title='GMM Classification')
-gmm_fig.show()
+# Perform EM clustering
+def em_clustering(data, n_clusters):
+    gmm = GaussianMixture(n_components=n_clusters, random_state=42)
+    gmm.fit(data)
+    labels = gmm.predict(data)
+    return labels
+
+# Plot clusters
+def plot_clusters(data, labels, title):
+    fig, ax = plt.subplots()
+    ax.scatter(data[:, 0], data[:, 1], c=labels, cmap='viridis')
+    ax.set_title(title)
+    ax.set_xlabel('Feature 1')
+    ax.set_ylabel('Feature 2')
+    st.pyplot(fig)
+
+
+# Main function
+def main():
+    st.title('Hack_Is_Wack-Clustering Comparison: EM vs K-Means')
+
+    # Load data
+    data = load_data()
+
+    # Standardize data
+    scaler = StandardScaler()
+    scaled_data = scaler.fit_transform(data)
+
+    # Sidebar for user input
+    n_clusters = st.sidebar.slider('Number of Clusters', min_value=2, max_value=10, value=3)
+
+    # Perform clustering
+    kmeans_labels = kmeans_clustering(scaled_data, n_clusters)
+    em_labels = em_clustering(scaled_data, n_clusters)
+
+    # Plot clusters
+    st.subheader('K-Means Clustering')
+    plot_clusters(scaled_data, kmeans_labels, 'K-Means Clustering')
+
+    st.subheader('EM Clustering')
+    plot_clusters(scaled_data, em_labels, 'EM Clustering')
+
+    # Evaluate clustering using silhouette score
+    kmeans_score = silhouette_score(scaled_data, kmeans_labels)
+    em_score = silhouette_score(scaled_data, em_labels)
+
+    st.write('Silhouette Score:')
+    st.write(f'- K-Means: {kmeans_score}')
+    st.write(f'- EM: {em_score}')
+
+# Run the main function
+if __name__ == '__main__':
+    main()
