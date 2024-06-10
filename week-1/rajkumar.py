@@ -1,85 +1,60 @@
 import numpy as np
 import pandas as pd
+import streamlit as st
 
-class CandidateElimination:
-    def __init__(self, num_features):
-        self.num_features = num_features
-        self.S = [np.zeros(num_features, dtype=int)]  # Specific Boundary
-        self.G = [np.full(num_features, None)]  # General Boundary
+def learn(concepts, target):
+    specific_h = concepts[0].copy()
+    general_h = [["?" for i in range(len(specific_h))] for i in range(len(specific_h))]
 
-    def fit(self, X, y):
-        for i in range(len(X)):
-            x = X[i]
-            label = y[i]
+    for i, h in enumerate(concepts):
+        if target[i] == "yes":
+            for x in range(len(specific_h)):
+                if h[x] != specific_h[x]:
+                    specific_h[x] = '?'
+                    general_h[x][x] = '?'
+        elif target[i] == "no":
+            for x in range(len(specific_h)):
+                if h[x] != specific_h[x]:
+                    general_h[x][x] = specific_h[x]
+                else:
+                    general_h[x][x] = '?'
 
-            if label == 1:  # Positive example
-                self._remove_inconsistent_hypotheses(x)
-            else:  # Negative example
-                self._generalize_hypotheses(x)
+        st.write(f"Step {i+1}")
+        st.write("specific_h:", specific_h)
+        st.write("general_h:")
+        st.write(general_h)
+        st.write("\n")  # Add a newline for clarity
 
-    def _remove_inconsistent_hypotheses(self, x):
-        S_prime = []
-        for s in self.S:
-            if np.array_equal(s, x):
-                continue
-            if np.any(s != x):
-                S_prime.append(s)
-        self.S = S_prime
+    indices = [i for i, val in enumerate(general_h) if val == ['?', '?', '?', '?', '?', '?']]
+    for i in indices[::-1]:  # Remove from the end to avoid index shifting issues
+        general_h.remove(['?', '?', '?', '?', '?', '?'])
 
-        self._specialize_hypotheses(x)
+    return specific_h, general_h
 
-    def _specialize_hypotheses(self, x):
-        G_prime = []
-        for g in self.G:
-            for i in range(len(x)):
-                if g[i] is None or g[i] == x[i]:
-                    continue
-                g_copy = np.copy(g)
-                g_copy[i] = None
-                if not self._is_more_general(g_copy):
-                    G_prime.append(g_copy)
-        self.G = G_prime
+def main():
+    st.title("HACK_IS_WACK-Candidate Elimination Algorithm")
 
-    def _generalize_hypotheses(self, x):
-        S_prime = []
-        for s in self.S:
-            if np.array_equal(s, np.zeros(self.num_features)):
-                continue
-            s_copy = np.copy(s)
-            for i in range(len(x)):
-                if s[i] is None or s[i] == x[i]:
-                    continue
-                s_copy[i] = None
-            if not self._is_more_general(s_copy):
-                S_prime.append(s_copy)
-        self.S = S_prime
+    uploaded_file = st.file_uploader("Upload CSV", type=["csv"])
 
-        self._remove_inconsistent_hypotheses(x)
+    if uploaded_file is not None:
+        data = pd.read_csv(uploaded_file)
+        concepts = np.array(data.iloc[:, 0:-1])
+        target = np.array(data.iloc[:, -1])
 
-    def _is_more_general(self, hypothesis):
-        for s in self.S:
-            if all((s_val is None or s_val == h_val) for s_val, h_val in zip(s, hypothesis)):
-                return True
-        return False
+        if st.button("Run Algorithm"):
+            with st.spinner('Running algorithm...'):
+                s_final, g_final = learn(concepts, target)
+            st.success("Algorithm completed successfully!")
 
-    def get_hypotheses(self):
-        return self.S, self.G
+            st.write("Final Specific_h and Final General_h:")
 
-# Example usage:
-data = {
-    'Feature1': [1, 0, 1, 0],
-    'Feature2': [1, 0, 0, 0],
-    'Feature3': [0, 1, 0, 0],
-    'Feature4': [0, 0, 0, 1],
-    'Label': [1, 0, 1, 0]
-}
-df = pd.DataFrame(data)
+            # Improved side-by-side display using `st.columns` and string formatting
+            col1, col2 = st.columns(2)
+            specific_h_string = "\n".join([f"{i}: {val}" for i, val in enumerate(s_final)])
+            col1.write("Final Specific_h:")
+            col1.write(specific_h_string)
+            col2.write("Final General_h:")
+            col2.write(g_final)  # Displaying the list as it is
 
-X = df[['Feature1', 'Feature2', 'Feature3', 'Feature4']].values
-y = df['Label'].values
-
-ce = CandidateElimination(num_features=X.shape[1])
-ce.fit(X, y)
-
-print("Final Specific Hypotheses:", ce.get_hypotheses()[0])
-print("Final General Hypotheses:", ce.get_hypotheses()[1])
+if __name__ == "__main__":
+    main()
