@@ -14,7 +14,7 @@ iris_df = pd.DataFrame(data= np.c_[iris_data['data'], iris_data['target']],
                        columns= iris_data['feature_names'] + ['target'])
 
 # Streamlit app
-st.title('TEAM-404-k-Nearest Neighbors (k-NN) Classifier for Iris Dataset')
+st.title('Hack_is_Wack-k-Nearest Neighbors (k-NN) Classifier for Iris Dataset')
 
 # Sidebar for user input
 test_size = st.sidebar.slider('Test Size', min_value=0.1, max_value=0.5, step=0.05, value=0.2)
