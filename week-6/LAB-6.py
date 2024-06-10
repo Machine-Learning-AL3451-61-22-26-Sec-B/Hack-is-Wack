@@ -9,7 +9,7 @@ st.title("Hack is Wack-COVID-19 Bayesian Inference")
 
 # Load the dataset
 data_path =r '=week-6/heartdisease.csv'  # Adjust the path if necessary
-data = pd.read_csv('week6/corona.csv')
+data = pd.read_csv('week6/heartdisease.csv')
 
 # Display the first few rows of the dataset to ensure it's loaded correctly
 st.write("Dataset loaded successfully:")
