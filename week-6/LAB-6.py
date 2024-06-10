@@ -1,57 +1,3 @@
-Skip to content
-Navigation Menu
-Machine-Learning-AL3451-61-22-26-Sec-B
-/
-Hack is wack
-
-Type / to search
-
-Code
-Issues
-Pull requests
-Actions
-Projects
-Security
-Insights
-Settings
-Files
-Go to file
-t
-week1
-week2
-week3
-week4
-week5
-week6
-README.md
-corona.csv
-main.py
-requirements.txt
-week7
-README.md
-main.py
-requirements.txt
-week8
-week9
-README.md
-tennisdata (1).csv
-trainingdata.csv
-BreadcrumbsTeam-404/week6
-/main.py
-Latest commit
-VarshaBalakrishnan0422
-VarshaBalakrishnan0422
-Update main.py
-390530e
- · 
-2 days ago
-History
-File metadata and controls
-
-Code
-
-Blame
-76 lines (62 loc) · 2.42 KB
 import pandas as pd
 import streamlit as st
 from pgmpy.models import BayesianModel
@@ -59,7 +5,7 @@ from pgmpy.estimators import MaximumLikelihoodEstimator
 from pgmpy.inference import VariableElimination
 
 # Title of the Streamlit app
-st.title("TEAM-404-COVID-19 Bayesian Inference")
+st.title("Hack is Wack-COVID-19 Bayesian Inference")
 
 # Load the dataset
 data_path = 'corona.csv'  # Adjust the path if necessary
@@ -128,4 +74,3 @@ results_df = pd.DataFrame(results, columns=columns)
 # Display the results in a proper table format
 st.write("Inference results:")
 st.write(results_df)
-Team-404/week6/main.py at main · Machine-Learning-AL3451-61-22-26-Sec-B/Team-404
